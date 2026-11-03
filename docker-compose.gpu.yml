@@ -1,0 +1,19 @@
+# =============================================================================
+# Override opcional para GPU NVIDIA
+# =============================================================================
+# Requiere NVIDIA Container Toolkit en el host y el runtime nvidia configurado.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# Ajusta OLLAMA_MEMORY_LIMIT/OLLAMA_CPUS en .env según tu GPU y memoria.
+# =============================================================================
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
