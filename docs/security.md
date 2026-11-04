@@ -107,9 +107,12 @@ podría falsificar `X-Forwarded-For`.
   proyecto.
 - Solo se leen archivos de texto UTF-8 dentro del límite por archivo y del límite total
   de contexto.
-- Exclusiones por defecto: `.git`, `node_modules`, `dist`, `build`, `.env*`, claves,
-  credenciales, tokens, binarios, imágenes, vídeos, archivos comprimidos, bases de datos
-  y logs. Se pueden añadir patrones por usuario.
+- Exclusiones por defecto, sin distinguir mayúsculas: `.env*`, extensiones de claves y
+  certificados, credenciales/secretos con nombres concretos, binarios, imágenes, vídeos,
+  archivos comprimidos, bases de datos y logs. `.git`, `node_modules`, cachés y entornos
+  virtuales se bloquean a cualquier profundidad; `dist`, `build`, `out`, `target`,
+  `coverage`, `.next` y `.nuxt` solo en la raíz, para no ocultar código como
+  `src/build/index.ts`. Se pueden añadir patrones por usuario.
 - La escritura usa archivo temporal + `rename` atómico y verifica el hash esperado.
 - El backup se crea **antes** de escribir y se guarda con permisos `0600`.
 

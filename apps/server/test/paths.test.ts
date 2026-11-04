@@ -52,6 +52,7 @@ describe('exclusiones de archivos', () => {
 
   it('excluye directorios y secretos por defecto', () => {
     expect(matcher.isExcluded('node_modules/react/index.js')).toBe(true);
+    expect(matcher.isExcluded('src/node_modules/react/index.js')).toBe(true);
     expect(matcher.isExcluded('.git/config')).toBe(true);
     expect(matcher.isExcluded('dist/app.js')).toBe(true);
     expect(matcher.isExcluded('.env')).toBe(true);
@@ -61,6 +62,44 @@ describe('exclusiones de archivos', () => {
     expect(matcher.isExcluded('keys/id_rsa')).toBe(true);
     expect(matcher.isExcluded('assets/logo.png')).toBe(true);
     expect(matcher.isExcluded('db/forge.sqlite')).toBe(true);
+  });
+
+  it('excluye secretos sin distinguir mayúsculas', () => {
+    for (const path of [
+      '.env',
+      '.ENV',
+      '.Env',
+      'config/Secrets.json',
+      'SECRETS.txt',
+      'Credentials.json',
+      'id_RSA',
+      'server.PEM',
+    ]) {
+      expect(matcher.isExcluded(path), path).toBe(true);
+    }
+  });
+
+  it('no excluye código legítimo con palabras parecidas a secretos', () => {
+    for (const path of [
+      'tokenizer.ts',
+      'src/auth/token.ts',
+      'design-tokens.css',
+      'src/build/index.ts',
+      'package.json',
+      'Dockerfile',
+    ]) {
+      expect(matcher.isExcluded(path), path).toBe(false);
+    }
+  });
+
+  it('bloquea dependencias a cualquier profundidad y salidas solo en la raíz', () => {
+    expect(matcher.isExcluded('packages/app/node_modules/lib/index.js')).toBe(true);
+    expect(matcher.isExcluded('src/.venv/lib/python.py')).toBe(true);
+    expect(matcher.isExcluded('dist/assets/app.js')).toBe(true);
+    expect(matcher.isExcluded('coverage/lcov.info')).toBe(true);
+    expect(matcher.isExcluded('src/dist/generated.js')).toBe(false);
+    expect(matcher.isExcluded('src/out/generated.js')).toBe(false);
+    expect(matcher.isExcluded('src/target/generated.rs')).toBe(false);
   });
 
   it('permite código y documentación normales', () => {
@@ -82,11 +121,13 @@ describe('exclusiones de archivos', () => {
     ).toEqual(['good/**']);
   });
 
-  it('detecta nombres evidentemente sensibles', () => {
+  it('detecta nombres evidentemente sensibles sin marcar código', () => {
     expect(isObviouslySecretName('api_token.txt')).toBe(true);
     expect(isObviouslySecretName('my-secret-value')).toBe(true);
     expect(isObviouslySecretName('credentials')).toBe(true);
     expect(isObviouslySecretName('tokenizer.ts')).toBe(false);
+    expect(isObviouslySecretName('token.ts')).toBe(false);
+    expect(isObviouslySecretName('design-tokens.css')).toBe(false);
     expect(isObviouslySecretName('notes.md')).toBe(false);
   });
 });

@@ -1,43 +1,18 @@
 import picomatch from 'picomatch';
 
+/**
+ * Patrones de archivos. Todos se evalúan sin distinguir mayúsculas y minúsculas
+ * (`nocase`), de modo que `.ENV` o `SERVER.PEM` no se cuelan en el contexto.
+ *
+ * Las carpetas de dependencias, caché y control de versiones se tratan aparte
+ * (`ALWAYS_BLOCKED_DIRECTORIES`) porque deben bloquearse a cualquier
+ * profundidad. Las salidas de compilación (`ROOT_OUTPUT_DIRECTORIES`) solo se
+ * bloquean en la raíz del proyecto: así `src/build/index.ts` sigue siendo un
+ * archivo de código accesible.
+ */
 export const DEFAULT_EXCLUDE_PATTERNS: readonly string[] = [
-  '.git',
-  '.git/**',
-  '.hg',
-  '.hg/**',
-  '.svn',
-  '.svn/**',
-  'node_modules',
-  'node_modules/**',
-  'dist',
-  'dist/**',
-  'build',
-  'build/**',
-  'out',
-  'out/**',
-  'coverage',
-  'coverage/**',
-  '.next',
-  '.next/**',
-  '.nuxt',
-  '.nuxt/**',
-  '.cache',
-  '.cache/**',
-  '.turbo',
-  '.turbo/**',
-  '.parcel-cache',
-  '.parcel-cache/**',
-  '.venv',
-  '.venv/**',
-  'venv',
-  'venv/**',
-  'venv/**',
-  '__pycache__',
-  '__pycache__/**',
-  '.pytest_cache',
-  '.pytest_cache/**',
-  'target',
-  'target/**',
+  // Secretos con nombres o extensiones concretas. Evitamos patrones amplios
+  // como `*token*` o `*secret*`, que bloqueaban código legítimo.
   '.env',
   '.env.*',
   '*.env',
@@ -48,14 +23,20 @@ export const DEFAULT_EXCLUDE_PATTERNS: readonly string[] = [
   '*.jks',
   '*.keystore',
   '*.ppk',
+  '*.kdbx',
   'id_rsa*',
   'id_ed25519*',
   'id_ecdsa*',
-  '*.kdbx',
-  'credentials*',
-  'secrets*',
-  '*secret*',
-  '*token*',
+  'credentials.json',
+  'credentials.yml',
+  'credentials.yaml',
+  'credentials.toml',
+  'secrets.json',
+  'secrets.yml',
+  'secrets.yaml',
+  'secrets.toml',
+  '*.secret',
+  '*.secrets',
   '.npmrc',
   '.pypirc',
   '.netrc',
@@ -63,6 +44,22 @@ export const DEFAULT_EXCLUDE_PATTERNS: readonly string[] = [
   '.aws/**',
   '.ssh/**',
   '.gnupg/**',
+  // Salidas de compilación solo en la raíz.
+  'dist',
+  'dist/**',
+  'build',
+  'build/**',
+  'out',
+  'out/**',
+  'target',
+  'target/**',
+  'coverage',
+  'coverage/**',
+  '.next',
+  '.next/**',
+  '.nuxt',
+  '.nuxt/**',
+  // Archivos binarios o que no aportan al contexto.
   '*.png',
   '*.jpg',
   '*.jpeg',
@@ -111,17 +108,12 @@ export const DEFAULT_EXCLUDE_PATTERNS: readonly string[] = [
   'Thumbs.db',
 ];
 
-const DIRECTORY_SEGMENT_BLOCKLIST = new Set([
+/** Carpetas que nunca deben recorrerse, estén donde estén. */
+const ALWAYS_BLOCKED_DIRECTORIES = new Set([
   '.git',
   '.hg',
   '.svn',
   'node_modules',
-  'dist',
-  'build',
-  'out',
-  'coverage',
-  '.next',
-  '.nuxt',
   '.cache',
   '.turbo',
   '.parcel-cache',
@@ -129,10 +121,20 @@ const DIRECTORY_SEGMENT_BLOCKLIST = new Set([
   'venv',
   '__pycache__',
   '.pytest_cache',
-  'target',
   '.aws',
   '.ssh',
   '.gnupg',
+]);
+
+/** Salidas de compilación: solo se bloquean si están en la raíz del proyecto. */
+const ROOT_OUTPUT_DIRECTORIES = new Set([
+  'dist',
+  'build',
+  'out',
+  'target',
+  'coverage',
+  '.next',
+  '.nuxt',
 ]);
 
 export interface ExclusionMatcher {
@@ -143,7 +145,7 @@ export interface ExclusionMatcher {
 export function createExclusionMatcher(userPatterns: readonly string[] = []): ExclusionMatcher {
   const patterns = [...DEFAULT_EXCLUDE_PATTERNS, ...sanitizePatterns(userPatterns)];
   const matchers = patterns.map((pattern) =>
-    picomatch(pattern, { dot: true, nocase: false, bash: true }),
+    picomatch(pattern, { dot: true, nocase: true, bash: true }),
   );
 
   return {
@@ -152,10 +154,16 @@ export function createExclusionMatcher(userPatterns: readonly string[] = []): Ex
       const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
       if (!normalized) return false;
       const segments = normalized.split('/').filter(Boolean);
-      for (const segment of segments) {
-        if (DIRECTORY_SEGMENT_BLOCKLIST.has(segment.toLowerCase())) return true;
+      const lowerSegments = segments.map((segment) => segment.toLowerCase());
+      for (const segment of lowerSegments) {
+        if (ALWAYS_BLOCKED_DIRECTORIES.has(segment)) return true;
+      }
+      // Solo la primera carpeta cuenta como salida de compilación del proyecto.
+      if (lowerSegments.length > 0 && ROOT_OUTPUT_DIRECTORIES.has(lowerSegments[0]!)) {
+        return true;
       }
       const basename = segments.at(-1) ?? normalized;
+      if (isObviouslySecretName(basename)) return true;
       return matchers.some((matcher) => matcher(normalized) || matcher(basename));
     },
   };
@@ -170,8 +178,16 @@ export function sanitizePatterns(patterns: readonly string[]): string[] {
     .slice(0, 100);
 }
 
+/**
+ * Capa adicional y acotada para nombres evidentemente sensibles. No se usa
+ * `token` ni `secret` sueltos: `tokenizer.ts`, `src/auth/token.ts` y
+ * `design-tokens.css` son código legítimo. Se exigen nombres completos o
+ * combinaciones con separadores (`api_token`, `my-secret-value`).
+ */
 export function isObviouslySecretName(name: string): boolean {
-  return /(?:^|[._-])(?:env|secret|secrets|token|tokens|credential|credentials|password|passwd|apikey|api_key|privatekey)(?:$|[._-])/i.test(
+  if (!name) return false;
+  if (/^(?:\.env|\.env\..+|.+\..+env)$/i.test(name)) return true;
+  return /(?:^|[._-])(?:secret|secrets|credential|credentials|password|passwd|api[_-]?key|api[_-]?token|access[_-]?token|private[_-]?key)(?:$|[._-])/i.test(
     name,
   );
 }
