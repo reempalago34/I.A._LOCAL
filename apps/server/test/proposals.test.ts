@@ -106,6 +106,30 @@ describe('propuestas, backups y restauración', () => {
     await expectCode(proposals.apply(user.id, id), 'PROPOSAL_NOT_PENDING');
   });
 
+  it('marca propuestas sensibles y exige confirmación APLICAR', async () => {
+    const packagePath = path.join(dir, 'projects', 'demo', 'package.json');
+    await writeFile(packagePath, '{"name":"demo"}\n');
+    const result = await proposals.createFromParsed({
+      userId: user.id,
+      project,
+      parsed: [
+        { path: 'package.json', action: 'write', content: '{"name":"demo","private":true}\n' },
+      ],
+    });
+    expect(result.proposals).toHaveLength(1);
+    expect(result.proposals[0]).toMatchObject({ path: 'package.json', sensitive: true });
+    expect(result.proposals[0]?.sensitiveReason).toContain('dependencias o scripts');
+
+    const id = result.proposals[0]!.id;
+    const error = await expectCode(proposals.apply(user.id, id), 'CONFIRMATION_REQUIRED');
+    expect(error.statusCode).toBe(400);
+    expect(await readFile(packagePath, 'utf8')).toBe('{"name":"demo"}\n');
+
+    const applied = await proposals.apply(user.id, id, 'APLICAR');
+    expect(applied.path).toBe('package.json');
+    expect(await readFile(packagePath, 'utf8')).toBe('{"name":"demo","private":true}\n');
+  });
+
   it('restaura el contenido anterior y marca el backup como usado', async () => {
     const id = await createWriteProposal('export const value = 2;\n');
     const { backupId } = await proposals.apply(user.id, id);

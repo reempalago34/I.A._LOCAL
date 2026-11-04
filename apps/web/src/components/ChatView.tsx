@@ -421,12 +421,12 @@ export function ChatView(props: ChatViewProps) {
     void performRequest(body, pending.assistantId);
   }
 
-  async function applyProposal(proposal: Proposal) {
+  async function applyProposal(proposal: Proposal, confirmation?: string) {
     setBusyProposal(proposal.id);
     try {
       const data = await api<{ proposal: Proposal }>(
         `/api/proposals/${encodeURIComponent(proposal.id)}/apply`,
-        { method: 'POST', body: JSON.stringify({}) },
+        { method: 'POST', body: JSON.stringify(confirmation ? { confirmation } : {}) },
       );
       setMessages((current) =>
         current.map((message) => ({
@@ -763,7 +763,7 @@ function MessageBubble({
   appliedPaths: readonly string[];
   busyProposal: string | null;
   onCopy: () => void;
-  onApply: (proposal: Proposal) => void;
+  onApply: (proposal: Proposal, confirmation?: string) => void;
   onReject: (proposal: Proposal) => void;
   onRetry?: () => void;
 }) {

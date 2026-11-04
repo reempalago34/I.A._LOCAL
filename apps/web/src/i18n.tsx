@@ -256,6 +256,13 @@ const es = {
   proposalStale: 'La propuesta caducó o el archivo cambió. Vuelve a generarla.',
   diffStat: '+{added} −{removed}',
   proposalExpires: 'Caduca',
+  proposalSensitiveBadge: 'Sensible',
+  proposalSensitiveHint:
+    'Esta propuesta toca archivos sensibles (secretos, CI, despliegue, scripts o autenticación). Revisa el diff completo antes de aplicarla.',
+  proposalSensitiveTitle: 'Confirmar cambio sensible',
+  proposalSensitiveConfirmBody:
+    'Vas a aplicar un cambio en {path}. Esta clase de archivo puede afectar a secretos, despliegue o ejecución de scripts. Escribe APLICAR para confirmar.',
+  proposalSensitiveConfirmType: 'Escribe APLICAR',
   proposalProject: 'Proyecto',
   proposalAppliedMsg: 'Cambio aplicado. Puedes deshacerlo desde Copias.',
   proposalRejectedMsg: 'Propuesta rechazada sin tocar el archivo.',
@@ -611,6 +618,13 @@ const en: Record<TranslationKey, string> = {
   proposalStale: 'The proposal expired or the file changed. Generate it again.',
   diffStat: '+{added} −{removed}',
   proposalExpires: 'Expires',
+  proposalSensitiveBadge: 'Sensitive',
+  proposalSensitiveHint:
+    'This proposal touches sensitive files (secrets, CI, deployment, scripts or authentication). Review the full diff before applying.',
+  proposalSensitiveTitle: 'Confirm sensitive change',
+  proposalSensitiveConfirmBody:
+    'You are about to apply a change to {path}. This kind of file may affect secrets, deployment or script execution. Type APLICAR to confirm.',
+  proposalSensitiveConfirmType: 'Type APLICAR',
   proposalProject: 'Project',
   proposalAppliedMsg: 'Change applied. You can undo it from Backups.',
   proposalRejectedMsg: 'Proposal rejected without touching the file.',

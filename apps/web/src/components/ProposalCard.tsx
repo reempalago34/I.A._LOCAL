@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
 import { formatDate } from '../lib/format';
 import type { Proposal } from '../types';
-import { CheckIcon, FileIcon, TrashIcon, XIcon } from './Icons';
+import { AlertIcon, CheckIcon, FileIcon, TrashIcon, XIcon } from './Icons';
+import { Modal } from './Modal';
 
 interface ProposalCardProps {
   proposal: Proposal;
   projectName?: string;
   busy?: boolean;
-  onApply: (proposal: Proposal) => void;
+  onApply: (proposal: Proposal, confirmation?: string) => void;
   onReject: (proposal: Proposal) => void;
 }
 
@@ -51,7 +52,25 @@ export function ProposalCard({
 }: ProposalCardProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState('');
   const pending = proposal.status === 'pending';
+
+  function requestApply(): void {
+    if (proposal.sensitive) {
+      setConfirmation('');
+      setConfirmOpen(true);
+      return;
+    }
+    onApply(proposal);
+  }
+
+  function confirmApply(): void {
+    if (confirmation !== 'APLICAR') return;
+    setConfirmOpen(false);
+    setConfirmation('');
+    onApply(proposal, 'APLICAR');
+  }
 
   return (
     <article className={`proposal-card ${proposal.status}`}>
@@ -62,6 +81,11 @@ export function ProposalCard({
           </span>
           <FileIcon size={15} />
           <code>{proposal.path}</code>
+          {proposal.sensitive ? (
+            <span className="badge warn" title={proposal.sensitiveReason}>
+              {t('proposalSensitiveBadge')}
+            </span>
+          ) : null}
           {projectName ? <span className="muted small">{projectName}</span> : null}
         </div>
         <div className="proposal-meta">
@@ -72,6 +96,13 @@ export function ProposalCard({
           </button>
         </div>
       </header>
+
+      {proposal.sensitive ? (
+        <div className="notice warn small" role="alert">
+          <AlertIcon size={15} />
+          <span>{proposal.sensitiveReason ?? t('proposalSensitiveHint')}</span>
+        </div>
+      ) : null}
 
       {expanded ? <DiffLines diff={proposal.diff} /> : null}
 
@@ -94,7 +125,7 @@ export function ProposalCard({
               <button
                 type="button"
                 className="button primary small"
-                onClick={() => onApply(proposal)}
+                onClick={requestApply}
                 disabled={busy}
               >
                 <CheckIcon size={14} />
@@ -109,6 +140,46 @@ export function ProposalCard({
           {proposal.action === 'delete' ? <TrashIcon size={14} className="muted" /> : null}
         </div>
       </footer>
+
+      {confirmOpen ? (
+        <Modal
+          title={t('proposalSensitiveTitle')}
+          subtitle={t('proposalSensitiveConfirmBody', { path: proposal.path })}
+          onClose={() => {
+            if (!busy) setConfirmOpen(false);
+          }}
+          footer={
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button ghost"
+                onClick={() => setConfirmOpen(false)}
+                disabled={busy}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={confirmApply}
+                disabled={busy || confirmation !== 'APLICAR'}
+              >
+                <CheckIcon size={14} />
+                {t('proposalApply')}
+              </button>
+            </div>
+          }
+        >
+          <div className="notice warn small" role="alert">
+            <AlertIcon size={15} />
+            <span>{proposal.sensitiveReason ?? t('proposalSensitiveHint')}</span>
+          </div>
+          <label className="field">
+            <span>{t('proposalSensitiveConfirmType')}</span>
+            <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+          </label>
+        </Modal>
+      ) : null}
     </article>
   );
 }

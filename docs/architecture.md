@@ -130,6 +130,12 @@ Modelo ──<proposal path="src/a.ts" action="write">──► parser
 - Rutas relativas, sin `..`, sin absolutas y sin symlinks.
 - Se rechazan archivos fuera de `PROJECTS_ROOT`, archivos binarios, no UTF-8 y mayores
   que el límite configurado.
+- Las propuestas sensibles (`package.json`, scripts, CI, despliegue, autenticación o
+  secretos) se marcan con `sensitive: true` y un motivo. Aplicarlas exige
+  `confirmation: "APLICAR"` además del botón de la UI.
+- El parser usa el último `</proposal>` antes de la siguiente apertura, de modo que el
+  contenido puede mencionar el cierre; una respuesta truncada sin cierre se descarta con
+  advertencia, y las acciones desconocidas se ignoran en lugar de convertirse en `write`.
 - Un cambio concurrente invalida la propuesta (`FILE_CHANGED`).
 - Restaurar un backup también detecta conflictos; `force: true` solo tras confirmación
   explícita en la UI.
@@ -179,7 +185,7 @@ Todas las rutas `/api/*` requieren sesión salvo `auth/config`, `auth/csrf`,
 | `DELETE` | `/api/projects/:id` | Elimina el registro y sus backups. |
 | `POST` | `/api/context/preview` | Contenido exacto y estimación de tokens. |
 | `GET` | `/api/proposals` | Propuestas pendientes en memoria. |
-| `POST` | `/api/proposals/:id/apply` | Aplica con backup y detección de conflictos. |
+| `POST` | `/api/proposals/:id/apply` | Aplica con backup y detección de conflictos; las propuestas sensibles exigen `confirmation: "APLICAR"`. |
 | `POST` | `/api/proposals/:id/reject` | Rechaza. |
 | `GET` | `/api/backups` | Lista backups. |
 | `POST` | `/api/backups/:id/restore` | Restaura (`confirmation: "RESTAURAR"`). |

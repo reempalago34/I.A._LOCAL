@@ -250,6 +250,8 @@ export interface Proposal {
   action: 'write' | 'delete';
   diff: string;
   stats: DiffStats;
+  sensitive: boolean;
+  sensitiveReason?: string;
   createdAt: number;
   expiresAt: number;
   status: 'pending' | 'applied' | 'rejected';

@@ -9,7 +9,7 @@ interface ChangesViewProps {
   projects: Project[];
   loading: boolean;
   onRefresh: () => void;
-  onApply: (proposal: Proposal) => Promise<void>;
+  onApply: (proposal: Proposal, confirmation?: string) => Promise<void>;
   onReject: (proposal: Proposal) => Promise<void>;
   onOpenChat: () => void;
 }
@@ -29,10 +29,10 @@ export function ChangesView({
   const pending = proposals.filter((proposal) => proposal.status === 'pending');
   const processed = proposals.filter((proposal) => proposal.status !== 'pending');
 
-  async function apply(proposal: Proposal) {
+  async function apply(proposal: Proposal, confirmation?: string) {
     setBusy(proposal.id);
     try {
-      await onApply(proposal);
+      await onApply(proposal, confirmation);
     } finally {
       setBusy(null);
     }
@@ -93,7 +93,7 @@ export function ChangesView({
                 proposal={proposal}
                 projectName={projectName(proposal.projectId)}
                 busy={busy === proposal.id}
-                onApply={(item) => void apply(item)}
+                onApply={(item, confirmation) => void apply(item, confirmation)}
                 onReject={(item) => void reject(item)}
               />
             ))}

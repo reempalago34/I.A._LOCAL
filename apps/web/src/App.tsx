@@ -515,11 +515,11 @@ function ForgeApp({
     }
   }
 
-  async function applyProposal(proposal: Proposal) {
+  async function applyProposal(proposal: Proposal, confirmation?: string) {
     try {
       await api(`/api/proposals/${encodeURIComponent(proposal.id)}/apply`, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify(confirmation ? { confirmation } : {}),
       });
       markProposalApplied(proposal.path);
       notify(t('proposalAppliedMsg'), 'success');

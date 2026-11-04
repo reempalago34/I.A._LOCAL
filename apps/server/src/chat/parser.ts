@@ -24,9 +24,88 @@ const MAX_PROPOSAL_BYTES = 524_288;
 const MAX_TOTAL_BYTES = 1_048_576;
 const MAX_COMMANDS = 5;
 
-const PROPOSAL_TAG = /<proposal\s+([^>]*)>([\s\S]*?)<\/proposal>/gi;
 const PROPOSAL_FENCE = /```(?:file|proposal):([^\n`]+)\n([\s\S]*?)```/gi;
 const COMMAND_TAG = /<command(?:[^>]*)>([\s\S]*?)<\/command>/gi;
+
+interface ProposalBlock {
+  attributes: string;
+  content: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Busca etiquetas de propuesta de forma secuencial.
+ *
+ * Regla de cierre: dentro del bloque delimitado por la siguiente etiqueta
+ * `<proposal ...>` (o el final del texto), se usa el **último** `</proposal>`.
+ * Así el contenido puede incluir la cadena `</proposal>` sin cerrar la propuesta
+ * antes de tiempo. Límite conocido: el contenido no puede incluir una etiqueta
+ * de apertura `<proposal ...>` literal antes del cierre real, porque se
+ * interpretaría como el inicio de otra propuesta.
+ */
+function scanProposalTags(raw: string): { blocks: ProposalBlock[]; unclosed: boolean } {
+  const blocks: ProposalBlock[] = [];
+  let cursor = 0;
+  let unclosed = false;
+
+  while (cursor < raw.length) {
+    const openStart = findOpeningTag(raw, cursor);
+    if (openStart === -1) break;
+    const openEnd = raw.indexOf('>', openStart);
+    if (openEnd === -1) {
+      unclosed = true;
+      break;
+    }
+    const attributes = raw.slice(openStart + '<proposal'.length, openEnd);
+    const nextOpen = findOpeningTag(raw, openEnd + 1);
+    const regionEnd = nextOpen === -1 ? raw.length : nextOpen;
+    const close = findLastClosingTag(raw, openEnd + 1, regionEnd);
+    if (!close) {
+      unclosed = true;
+      cursor = regionEnd;
+      continue;
+    }
+    blocks.push({
+      attributes,
+      content: raw.slice(openEnd + 1, close.start),
+      start: openStart,
+      end: close.end,
+    });
+    cursor = close.end;
+  }
+
+  return { blocks, unclosed };
+}
+
+function findOpeningTag(raw: string, from: number): number {
+  const pattern = /<proposal(?=[\s>])/gi;
+  pattern.lastIndex = from;
+  return pattern.exec(raw)?.index ?? -1;
+}
+
+function findLastClosingTag(
+  raw: string,
+  from: number,
+  to: number,
+): { start: number; end: number } | null {
+  const pattern = /<\/proposal\s*>/gi;
+  const region = raw.slice(from, to);
+  let last: RegExpExecArray | null = null;
+  for (const match of region.matchAll(pattern)) {
+    last = match;
+  }
+  if (!last || last.index === undefined) return null;
+  return { start: from + last.index, end: from + last.index + last[0].length };
+}
+
+function overlaps(
+  spans: readonly { start: number; end: number }[],
+  start: number,
+  end: number,
+): boolean {
+  return spans.some((span) => start < span.end && end > span.start);
+}
 
 export function parseAssistantOutput(raw: string): ParsedAssistantOutput {
   const proposals: ParsedProposal[] = [];
@@ -64,7 +143,10 @@ export function parseAssistantOutput(raw: string): ParsedAssistantOutput {
       .toLowerCase()
       .trim();
     if (actionRaw !== 'write' && actionRaw !== 'delete') {
-      warnings.push(`Acción no soportada en ${relativePath}; se usará "write".`);
+      warnings.push(
+        `Acción no soportada en ${relativePath} ("${actionRaw.slice(0, 40)}"); se ignoró la propuesta.`,
+      );
+      return;
     }
     const content = actionRaw === 'delete' ? '' : stripLeadingNewline(rawContent);
     const bytes = Buffer.byteLength(content, 'utf8');
@@ -80,15 +162,28 @@ export function parseAssistantOutput(raw: string): ParsedAssistantOutput {
     seenPaths.add(relativePath);
     proposals.push({
       path: relativePath,
-      action: actionRaw === 'delete' ? 'delete' : 'write',
+      action: actionRaw,
       content,
     });
   };
 
-  for (const match of raw.matchAll(PROPOSAL_TAG)) {
-    addProposal(match[1] ?? '', match[2] ?? '');
+  const tagScan = scanProposalTags(raw);
+  for (const block of tagScan.blocks) {
+    addProposal(block.attributes, block.content);
   }
+  if (tagScan.unclosed) {
+    warnings.push(
+      'Se ignoró una propuesta sin etiqueta de cierre </proposal>; la respuesta puede estar incompleta.',
+    );
+  }
+
+  const tagSpans = tagScan.blocks.map(({ start, end }) => ({ start, end }));
+  const fenceSpans: { start: number; end: number }[] = [];
   for (const match of raw.matchAll(PROPOSAL_FENCE)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (overlaps(tagSpans, start, end)) continue;
+    fenceSpans.push({ start, end });
     const fallbackPath = (match[1] ?? '').trim();
     addProposal('', match[2] ?? '', fallbackPath);
   }
@@ -107,7 +202,7 @@ export function parseAssistantOutput(raw: string): ParsedAssistantOutput {
     commands.push({ command });
   }
 
-  let displayContent = raw.replace(PROPOSAL_TAG, '').replace(PROPOSAL_FENCE, '');
+  let displayContent = removeSpans(raw, [...tagSpans, ...fenceSpans]);
   displayContent = displayContent.replace(COMMAND_TAG, '');
   displayContent = displayContent.replace(/\n{3,}/g, '\n\n').trim();
   if (proposals.length > 0) {
@@ -129,6 +224,16 @@ export function parseAssistantOutput(raw: string): ParsedAssistantOutput {
     displayContent: displayContent.trim(),
     warnings,
   };
+}
+
+function removeSpans(raw: string, spans: readonly { start: number; end: number }[]): string {
+  if (spans.length === 0) return raw;
+  const ordered = [...spans].sort((a, b) => b.start - a.start);
+  let result = raw;
+  for (const span of ordered) {
+    result = result.slice(0, span.start) + result.slice(span.end);
+  }
+  return result;
 }
 
 export function validateCommandText(command: string): {

@@ -124,6 +124,12 @@ acepta, se crea el backup, se escribe de forma atómica y se registra el hash po
 Al restaurar, también se detecta si el archivo cambió después; se requiere `force` tras
 confirmación explícita.
 
+Las propuestas que tocan secretos, configuración de CI, despliegue, scripts o código de
+autenticación se marcan con `sensitive: true` y un motivo público. La API exige
+`confirmation: "APLICAR"` para aplicarlas y la UI muestra una insignia, el motivo y un
+modal de confirmación adicional. La marca no bloquea la propuesta: solo añade fricción y
+visibilidad antes de un cambio de alto impacto.
+
 ## Privacidad y logs
 
 - **Telemetría desactivada**. No hay analítica, crash reporting ni llamadas a terceros.

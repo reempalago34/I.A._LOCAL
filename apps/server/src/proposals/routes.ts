@@ -6,6 +6,9 @@ import type { ProposalService } from './service.js';
 
 const idSchema = z.object({ proposalId: z.string().uuid() });
 const backupIdSchema = z.object({ backupId: z.string().uuid() });
+const applySchema = z
+  .object({ confirmation: z.string().max(20).optional() })
+  .default({ confirmation: undefined });
 
 export function registerProposalRoutes(
   app: FastifyInstance,
@@ -21,7 +24,8 @@ export function registerProposalRoutes(
   app.post('/api/proposals/:proposalId/apply', async (request) => {
     const { user } = requireAuth(request);
     const params = idSchema.parse(request.params);
-    return proposals.apply(user.id, params.proposalId);
+    const body = applySchema.parse(request.body ?? {});
+    return proposals.apply(user.id, params.proposalId, body.confirmation);
   });
 
   app.post('/api/proposals/:proposalId/reject', async (request) => {

@@ -43,7 +43,7 @@ export const answer = 42;
     expect(parsed.warnings[0]).toContain('inválida');
   });
 
-  it('ignora propuestas duplicadas y normaliza acciones desconocidas', () => {
+  it('ignora propuestas duplicadas y rechaza acciones desconocidas', () => {
     const parsed = parseAssistantOutput(`<proposal path="src/a.ts" action="write">
 uno
 </proposal>
@@ -53,10 +53,37 @@ dos
 <proposal path="src/b.ts" action="replace">
 tres
 </proposal>`);
-    expect(parsed.proposals).toHaveLength(2);
-    expect(parsed.proposals[1]?.action).toBe('write');
+    expect(parsed.proposals).toHaveLength(1);
+    expect(parsed.proposals[0]?.path).toBe('src/a.ts');
     expect(parsed.warnings.some((warning) => warning.includes('duplicada'))).toBe(true);
-    expect(parsed.warnings.some((warning) => warning.includes('no soportada'))).toBe(true);
+    expect(parsed.warnings.some((warning) => warning.includes('Acción no soportada'))).toBe(true);
+  });
+
+  it('permite </proposal> dentro del contenido y usa el último cierre', () => {
+    const parsed = parseAssistantOutput(`<proposal path="docs/ejemplo.md" action="write">
+Texto que menciona </proposal> literalmente.
+Más contenido.
+</proposal>
+<proposal path="src/b.ts" action="write">
+export const b = 2;
+</proposal>`);
+
+    expect(parsed.proposals).toHaveLength(2);
+    expect(parsed.proposals[0]?.content).toBe(
+      'Texto que menciona </proposal> literalmente.\nMás contenido.\n',
+    );
+    expect(parsed.proposals[1]?.content).toBe('export const b = 2;\n');
+    expect(parsed.displayContent).not.toContain('<proposal');
+  });
+
+  it('avisa y no crea propuestas cuando la respuesta está truncada sin cierre', () => {
+    const parsed = parseAssistantOutput(`<proposal path="src/a.ts" action="write">
+export const incompleto = true;
+`);
+    expect(parsed.proposals).toEqual([]);
+    expect(parsed.warnings.some((warning) => warning.includes('sin etiqueta de cierre'))).toBe(
+      true,
+    );
   });
 
   it('limita la cantidad de propuestas y comandos', () => {

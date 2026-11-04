@@ -13,6 +13,8 @@ export interface StoredProposal {
   oldMode: number;
   diff: string;
   stats: DiffStats;
+  sensitive: boolean;
+  sensitiveReason?: string;
   createdAt: number;
   expiresAt: number;
   status: 'pending' | 'applied' | 'rejected';
@@ -26,6 +28,8 @@ export interface PublicProposal {
   action: 'write' | 'delete';
   diff: string;
   stats: DiffStats;
+  sensitive: boolean;
+  sensitiveReason?: string;
   createdAt: number;
   expiresAt: number;
   status: 'pending' | 'applied' | 'rejected';
@@ -132,6 +136,8 @@ export function toPublicProposal(proposal: StoredProposal): PublicProposal {
     action: proposal.action,
     diff: proposal.diff,
     stats: proposal.stats,
+    sensitive: proposal.sensitive,
+    ...(proposal.sensitiveReason ? { sensitiveReason: proposal.sensitiveReason } : {}),
     createdAt: proposal.createdAt,
     expiresAt: proposal.expiresAt,
     status: proposal.status,

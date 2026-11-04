@@ -8,6 +8,7 @@ import type { ProjectRecord } from '../types.js';
 import { AppError } from '../utils/errors.js';
 import type { BackupService } from './backups.js';
 import { createUnifiedDiff } from './diff.js';
+import { analyzeProposalSensitivity } from './sensitivity.js';
 import { type ProposalStore, type PublicProposal, toPublicProposal } from './store.js';
 
 export interface ProposalCreationResult {
@@ -80,6 +81,7 @@ export class ProposalService {
           oldContent ?? '',
           parsed.action === 'delete' ? '' : parsed.content,
         );
+        const sensitivity = analyzeProposalSensitivity(parsed.path);
         const stored = this.proposals.create({
           userId: input.userId,
           projectId: input.project.id,
@@ -91,6 +93,8 @@ export class ProposalService {
           oldMode,
           diff,
           stats,
+          sensitive: sensitivity.sensitive,
+          ...(sensitivity.reason ? { sensitiveReason: sensitivity.reason } : {}),
         });
         publicProposals.push(toPublicProposal(stored));
       } catch (error) {
@@ -108,6 +112,7 @@ export class ProposalService {
   async apply(
     userId: string,
     proposalId: string,
+    confirmation?: string,
   ): Promise<{
     proposal: PublicProposal;
     backupId: string;
@@ -120,6 +125,13 @@ export class ProposalService {
         404,
         'PROPOSAL_NOT_FOUND',
         'La propuesta no existe o caducó. Vuelve a generar los cambios.',
+      );
+    }
+    if (proposal.sensitive && confirmation !== 'APLICAR') {
+      throw new AppError(
+        400,
+        'CONFIRMATION_REQUIRED',
+        'Esta propuesta toca archivos sensibles. Escribe APLICAR para confirmar.',
       );
     }
     if (proposal.status !== 'pending') {

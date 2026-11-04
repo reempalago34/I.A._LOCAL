@@ -167,7 +167,9 @@ Las instrucciones completas, incluida la configuración de Coolify, están en
 2. El backend valida rutas, tamaños y exclusiones, calcula el diff y guarda la propuesta
    **en memoria** con TTL.
 3. La UI muestra el diff. Al aceptar, se crea un backup en `DATA_DIR/backups`, se escribe
-   de forma atómica y se verifica el hash posterior.
+   de forma atómica y se verifica el hash posterior. Las propuestas que tocan secretos,
+   CI, despliegue, scripts o autenticación se marcan como sensibles y piden escribir
+   `APLICAR` para confirmar.
 4. Puedes restaurar el backup desde “Backups” o borrar los datos desde “Privacidad”.
 
 Las propuestas no sobreviven a un reinicio del servidor. Los backups temporales caducan

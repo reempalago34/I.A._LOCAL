@@ -152,6 +152,54 @@ export const value = 2;
     }
   });
 
+  it('exige confirmación APLICAR en la API para propuestas sensibles', async () => {
+    const assistantText = `<proposal path="package.json" action="write">
+{"name":"demo","private":true}
+</proposal>`;
+    const context = await createTestApp({}, { runtimeFactory: () => fakeRuntime(assistantText) });
+    try {
+      const session = await createTestUser(context.auth);
+      const projectId = await setupProject(context, session);
+      await writeFile(
+        path.join(context.config.projectsRoot, 'demo', 'package.json'),
+        '{"name":"demo"}\n',
+      );
+
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: headers(session),
+        payload: { message: 'Actualiza package.json', model: 'llama3', projectId },
+      });
+      const proposalEvent = parseSse(response.payload).find((event) => event.event === 'proposals')
+        ?.data as { proposals: { id: string; path: string; sensitive: boolean }[] };
+      expect(proposalEvent.proposals[0]).toMatchObject({
+        path: 'package.json',
+        sensitive: true,
+      });
+      const proposalId = proposalEvent.proposals[0]!.id;
+
+      const denied = await context.app.inject({
+        method: 'POST',
+        url: `/api/proposals/${proposalId}/apply`,
+        headers: headers(session),
+      });
+      expect(denied.statusCode).toBe(400);
+      expect(denied.json().error.code).toBe('CONFIRMATION_REQUIRED');
+
+      const applied = await context.app.inject({
+        method: 'POST',
+        url: `/api/proposals/${proposalId}/apply`,
+        headers: headers(session),
+        payload: { confirmation: 'APLICAR' },
+      });
+      expect(applied.statusCode).toBe(200);
+      expect(applied.json().proposal).toMatchObject({ path: 'package.json', status: 'applied' });
+    } finally {
+      await context.cleanup();
+    }
+  });
+
   it('avisa cuando el prompt estimado supera la ventana de contexto', async () => {
     const context = await createTestApp(
       { RUNTIME_NUM_CTX: '1000' },
