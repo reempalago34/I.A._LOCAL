@@ -517,6 +517,11 @@ export function SettingsView({
               })}
             </p>
           ) : null}
+          {server ? (
+            <p className="muted small">
+              {t('contextWindowTokens', { count: server.runtimeNumCtx })}
+            </p>
+          ) : null}
 
           <label className="field">
             <span>{t('excludesLabel')}</span>

@@ -83,6 +83,7 @@ const chatLineSchema = z
     prompt_eval_count: z.number().optional(),
     eval_count: z.number().optional(),
     total_duration: z.number().optional(),
+    done_reason: z.string().optional(),
   })
   .passthrough();
 
@@ -267,6 +268,10 @@ export class OllamaRuntime implements ModelRuntime {
           model: request.model,
           messages: request.messages,
           stream: true,
+          // Documentado en la API oficial de Ollama: `options.num_ctx` es la
+          // longitud de contexto en tokens. Sin esto Ollama usa su propio
+          // valor por defecto, a menudo menor que el contexto que enviamos.
+          options: { num_ctx: this.#config.runtimeNumCtx },
         }),
         signal: controller.signal,
       });
@@ -345,6 +350,7 @@ export class OllamaRuntime implements ModelRuntime {
                   totalDurationMs: parsed.total_duration
                     ? Math.round(parsed.total_duration / 1_000_000)
                     : undefined,
+                  doneReason: parsed.done_reason,
                 },
               };
               break;
@@ -368,6 +374,7 @@ export class OllamaRuntime implements ModelRuntime {
                 totalDurationMs: parsed.total_duration
                   ? Math.round(parsed.total_duration / 1_000_000)
                   : undefined,
+                doneReason: parsed.done_reason,
               },
             };
           }

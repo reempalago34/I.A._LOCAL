@@ -20,6 +20,7 @@ describe('loadConfig', () => {
     expect(config.databasePath).toBe(`${dir}/data/forge.sqlite`);
     expect(config.runtimeAllowedHosts.has('127.0.0.1')).toBe(true);
     expect(config.runtimeAllowedPorts.has(11434)).toBe(true);
+    expect(config.runtimeNumCtx).toBe(8_192);
   });
 
   it('exige SESSION_SECRET en producción', async () => {
@@ -51,6 +52,9 @@ describe('loadConfig', () => {
       /Configuración inválida/,
     );
     expect(() => loadConfig({ cwd: dir, env: { ...BASE, MAX_CONTEXT_FILES: '999' } })).toThrow(
+      /Configuración inválida/,
+    );
+    expect(() => loadConfig({ cwd: dir, env: { ...BASE, RUNTIME_NUM_CTX: '100' } })).toThrow(
       /Configuración inválida/,
     );
   });

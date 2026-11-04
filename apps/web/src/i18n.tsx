@@ -186,6 +186,8 @@ const es = {
   settingsSaved: 'Ajustes guardados.',
   settingsReset: 'Ajustes restablecidos.',
   hardLimits: 'Límites máximos del servidor: {file} por archivo, {total} total, {count} archivos.',
+  contextWindowTokens:
+    'Ventana de contexto solicitada a Ollama: {count} tokens (RUNTIME_NUM_CTX). La estimación de tokens es aproximada.',
   storageSection: 'Almacenamiento',
   storageUsageTitle: 'Espacio utilizado',
   storageUsageHint: 'Conversaciones, copias y temporales de este usuario.',
@@ -537,6 +539,8 @@ const en: Record<TranslationKey, string> = {
   settingsSaved: 'Settings saved.',
   settingsReset: 'Settings reset.',
   hardLimits: 'Server maximums: {file} per file, {total} total, {count} files.',
+  contextWindowTokens:
+    'Context window requested from Ollama: {count} tokens (RUNTIME_NUM_CTX). Token estimation is approximate.',
   storageSection: 'Storage',
   storageUsageTitle: 'Space used',
   storageUsageHint: 'Conversations, backups, and temporary files for this user.',

@@ -58,6 +58,7 @@ export interface ServerInfo {
   defaultRuntimeUrl: string;
   registrationEnabled: boolean;
   commandExecutionEnabled: boolean;
+  runtimeNumCtx: number;
   telemetryEnabled: boolean;
   limits: {
     maxFileBytes: number;

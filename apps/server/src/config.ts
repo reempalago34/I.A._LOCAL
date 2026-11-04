@@ -37,6 +37,11 @@ const envSchema = z.object({
   RUNTIME_ALLOWED_PORTS: z.string().max(512).optional(),
   RUNTIME_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(120_000),
   RUNTIME_STREAM_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(120_000),
+  // Ventana de contexto en tokens que se solicita a Ollama (`options.num_ctx`).
+  // 8192 es un equilibrio conservador: deja margen frente a los 2048/4096
+  // habituales sin disparar la memoria de la caché KV. Súbelo si el modelo y el
+  // servidor lo soportan; no es un tamaño en bytes.
+  RUNTIME_NUM_CTX: z.coerce.number().int().min(512).max(262_144).default(8_192),
   MAX_REQUEST_BYTES: z.coerce.number().int().min(16_384).max(8_388_608).default(1_048_576),
   MAX_MESSAGE_CHARS: z.coerce.number().int().min(1_000).max(200_000).default(20_000),
   // Valores pensados para un cliente ligero: 128 KiB por archivo y 256 KiB por
@@ -172,6 +177,7 @@ function buildConfig(input: {
   runtimeAllowedPorts: Set<number>;
   RUNTIME_TIMEOUT_MS: number;
   RUNTIME_STREAM_IDLE_TIMEOUT_MS: number;
+  RUNTIME_NUM_CTX: number;
   MAX_REQUEST_BYTES: number;
   MAX_MESSAGE_CHARS: number;
   MAX_FILE_BYTES: number;
@@ -222,6 +228,7 @@ function buildConfig(input: {
     runtimeAllowedPorts: input.runtimeAllowedPorts,
     runtimeTimeoutMs: input.RUNTIME_TIMEOUT_MS,
     runtimeStreamIdleTimeoutMs: input.RUNTIME_STREAM_IDLE_TIMEOUT_MS,
+    runtimeNumCtx: input.RUNTIME_NUM_CTX,
     maxRequestBytes: input.MAX_REQUEST_BYTES,
     maxMessageChars: input.MAX_MESSAGE_CHARS,
     maxFileBytes: input.MAX_FILE_BYTES,

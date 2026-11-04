@@ -30,6 +30,7 @@ export function registerSettingsRoutes(
         defaultRuntimeUrl: config.defaultRuntimeUrl,
         registrationEnabled: config.allowRegistration,
         commandExecutionEnabled: config.enableCommandExecution,
+        runtimeNumCtx: config.runtimeNumCtx,
         telemetryEnabled: false,
         limits: {
           maxFileBytes: config.maxFileBytes,

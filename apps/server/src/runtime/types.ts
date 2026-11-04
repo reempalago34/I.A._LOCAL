@@ -9,6 +9,8 @@ export interface ChatUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalDurationMs?: number;
+  /** `done_reason` de Ollama: `stop` o `length` (límite de salida). */
+  doneReason?: string;
 }
 
 export type ChatStreamChunk = { type: 'delta'; text: string } | { type: 'done'; usage: ChatUsage };

@@ -104,6 +104,20 @@ OLLAMA_AUTH_TOKEN=<token>
 
 Se envía como `Authorization: Bearer <token>`. No se devuelve al navegador.
 
+### Ventana de contexto
+
+Forge Local envía `options.num_ctx` en cada petición a `/api/chat`. El valor se configura
+con `RUNTIME_NUM_CTX` (en tokens, no en bytes; por defecto `8192`). Sin este parámetro
+Ollama usa su propia ventana, que puede ser menor que el contexto permitido por la app y
+truncar el prompt sin avisar.
+
+- Un valor mayor permite más archivos e historial, pero consume más memoria de caché KV.
+- La estimación de la app es aproximada (`caracteres / 4`); no usa el tokenizador real.
+- La UI avisa si el prompt estimado supera `RUNTIME_NUM_CTX` y si `prompt_eval_count`
+  queda cerca del límite. También muestra si Ollama corta la salida (`done_reason`).
+- Si aparece el aviso, quita archivos, acorta el historial o sube `RUNTIME_NUM_CTX`
+  dentro de lo que soporten el modelo y el servidor.
+
 ### Runtime remoto
 
 Si el runtime no es loopback y adjuntas archivos, la UI muestra una confirmación con el
@@ -172,6 +186,7 @@ Notas:
 | `MAX_REQUEST_BYTES` | Cuerpo HTTP máximo. |
 | `RUNTIME_TIMEOUT_MS` | Timeout de conexión/no streaming con Ollama. |
 | `RUNTIME_STREAM_IDLE_TIMEOUT_MS` | Timeout de inactividad durante el streaming. |
+| `RUNTIME_NUM_CTX` | Ventana de contexto en tokens enviada como `options.num_ctx` (8192 por defecto). |
 | `PROPOSAL_TTL_MINUTES` | Vida de una propuesta en memoria. |
 | `BACKUP_RETENTION_DAYS` | Retención de backups temporales. |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | Generaciones por minuto y usuario. |

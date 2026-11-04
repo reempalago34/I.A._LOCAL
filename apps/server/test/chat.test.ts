@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { ModelRuntime } from '../src/runtime/types.js';
+import type { ChatUsage, ModelRuntime } from '../src/runtime/types.js';
 import { SettingsService } from '../src/settings/service.js';
 import { AppError } from '../src/utils/errors.js';
 import {
@@ -13,7 +13,10 @@ import {
   type TestSession,
 } from './helpers.js';
 
-function fakeRuntime(text: string): ModelRuntime {
+function fakeRuntime(
+  text: string,
+  usage: ChatUsage = { promptTokens: 10, completionTokens: 5 },
+): ModelRuntime {
   return {
     kind: 'ollama',
     target: 'http://127.0.0.1:11434',
@@ -33,7 +36,7 @@ function fakeRuntime(text: string): ModelRuntime {
     }),
     async *chat() {
       yield { type: 'delta', text };
-      yield { type: 'done', usage: { promptTokens: 10, completionTokens: 5 } };
+      yield { type: 'done', usage };
     },
   };
 }
@@ -144,6 +147,82 @@ export const value = 2;
       expect(
         await readFile(path.join(context.config.projectsRoot, 'demo', 'src', 'index.ts'), 'utf8'),
       ).toBe('export const value = 1;\n');
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it('avisa cuando el prompt estimado supera la ventana de contexto', async () => {
+    const context = await createTestApp(
+      { RUNTIME_NUM_CTX: '1000' },
+      { runtimeFactory: () => fakeRuntime('ok', { promptTokens: 1_200, completionTokens: 2 }) },
+    );
+    try {
+      const session = await createTestUser(context.auth);
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: headers(session),
+        payload: { message: 'x'.repeat(5_000), model: 'llama3' },
+      });
+      expect(response.statusCode).toBe(200);
+      const warnings = parseSse(response.payload)
+        .filter((event) => event.event === 'warnings')
+        .flatMap((event) => (event.data as { warnings: string[] }).warnings);
+      expect(warnings.some((warning) => warning.includes('supera la ventana'))).toBe(true);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it('avisa de posible truncamiento cuando prompt_eval_count se acerca al límite', async () => {
+    const context = await createTestApp(
+      { RUNTIME_NUM_CTX: '1000' },
+      { runtimeFactory: () => fakeRuntime('ok', { promptTokens: 990, completionTokens: 2 }) },
+    );
+    try {
+      const session = await createTestUser(context.auth);
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: headers(session),
+        payload: { message: 'Hola', model: 'llama3' },
+      });
+      expect(response.statusCode).toBe(200);
+      const warnings = parseSse(response.payload)
+        .filter((event) => event.event === 'warnings')
+        .flatMap((event) => (event.data as { warnings: string[] }).warnings);
+      expect(warnings.some((warning) => warning.includes('cerca del límite'))).toBe(true);
+    } finally {
+      await context.cleanup();
+    }
+  });
+
+  it('avisa cuando Ollama corta la respuesta por el límite de salida', async () => {
+    const context = await createTestApp(
+      {},
+      {
+        runtimeFactory: () =>
+          fakeRuntime('parcial', {
+            promptTokens: 10,
+            completionTokens: 50,
+            doneReason: 'length',
+          }),
+      },
+    );
+    try {
+      const session = await createTestUser(context.auth);
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: headers(session),
+        payload: { message: 'Escribe mucho', model: 'llama3' },
+      });
+      expect(response.statusCode).toBe(200);
+      const warnings = parseSse(response.payload)
+        .filter((event) => event.event === 'warnings')
+        .flatMap((event) => (event.data as { warnings: string[] }).warnings);
+      expect(warnings.some((warning) => warning.includes('se cortó'))).toBe(true);
     } finally {
       await context.cleanup();
     }

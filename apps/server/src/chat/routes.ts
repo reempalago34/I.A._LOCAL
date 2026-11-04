@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/hooks.js';
 import type { AppConfig } from '../config.js';
+import { estimateTokens } from '../files/context.js';
 import type { ProposalService } from '../proposals/service.js';
 import { OllamaRuntime } from '../runtime/ollama.js';
 import { resolveRuntimeTarget } from '../runtime/url-policy.js';
@@ -106,6 +107,7 @@ export function registerChatRoutes(
         host: `${prepared.target.hostname}:${prepared.target.port}`,
         location: prepared.runtimeLocation,
         isLocal: prepared.target.isLocal,
+        numCtx: config.runtimeNumCtx,
         executionScope:
           config.deploymentMode === 'server'
             ? 'remote-server'
@@ -126,11 +128,22 @@ export function registerChatRoutes(
       persisted: prepared.persisted,
     });
 
+    const estimatedPromptTokens = estimateTokens(
+      prepared.messages.map((message) => message.content).join('\n'),
+    );
+    const windowWarnings: string[] = [];
+    if (estimatedPromptTokens > config.runtimeNumCtx) {
+      windowWarnings.push(
+        `El prompt estimado (~${estimatedPromptTokens} tokens) supera la ventana de contexto configurada (${config.runtimeNumCtx} tokens). Ollama podría truncar contenido. Quita archivos, acorta el historial o aumenta RUNTIME_NUM_CTX.`,
+      );
+    }
+
     let raw = '';
     let usage: {
       promptTokens?: number;
       completionTokens?: number;
       totalDurationMs?: number;
+      doneReason?: string;
     } = {};
 
     try {
@@ -181,7 +194,20 @@ export function registerChatRoutes(
         };
       });
 
-      const warnings = [...parsed.warnings, ...created.warnings];
+      const warnings = [...windowWarnings, ...parsed.warnings, ...created.warnings];
+      const nearWindow =
+        typeof usage.promptTokens === 'number' &&
+        usage.promptTokens >= Math.ceil(config.runtimeNumCtx * 0.95);
+      if (nearWindow && windowWarnings.length === 0) {
+        warnings.push(
+          `Ollama procesó ${usage.promptTokens} tokens de prompt, cerca del límite de la ventana (${config.runtimeNumCtx} tokens). Es posible que haya truncado archivos del contexto; quita archivos o aumenta RUNTIME_NUM_CTX.`,
+        );
+      }
+      if (usage.doneReason === 'length') {
+        warnings.push(
+          'La respuesta se cortó por el límite de tokens de salida del runtime. Pide una respuesta más breve o continúa en otro mensaje.',
+        );
+      }
       if (created.proposals.length > 0) {
         send('proposals', {
           proposals: created.proposals,

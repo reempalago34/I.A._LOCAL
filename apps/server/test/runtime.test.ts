@@ -225,6 +225,41 @@ describe('OllamaRuntime', () => {
     ]);
   });
 
+  it('envía la ventana de contexto y conserva done_reason', async () => {
+    const dir = await makeTempDir();
+    const config = makeTestConfig(dir, { RUNTIME_NUM_CTX: '4096' });
+    const target = resolveRuntimeTarget('http://127.0.0.1:11434', config);
+    let sent: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      sent = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        '{"message":{"content":"ok"},"done":true,"prompt_eval_count":4090,"eval_count":2,"done_reason":"length"}',
+        { status: 200 },
+      );
+    });
+    const runtime = new OllamaRuntime({
+      target,
+      config,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const chunks = await collect(
+      runtime.chat(
+        { model: 'llama3', messages: [{ role: 'user', content: 'Hola' }] },
+        new AbortController().signal,
+      ),
+    );
+    expect(sent).toMatchObject({
+      model: 'llama3',
+      stream: true,
+      options: { num_ctx: 4096 },
+    });
+    expect(chunks.at(-1)).toMatchObject({
+      type: 'done',
+      usage: { promptTokens: 4090, completionTokens: 2, doneReason: 'length' },
+    });
+  });
+
   it('mapea errores HTTP del runtime a códigos claros', async () => {
     const dir = await makeTempDir();
     const config = makeTestConfig(dir);

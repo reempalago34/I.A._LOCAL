@@ -170,6 +170,12 @@ export function formatContextFiles(files: readonly ContextFile[]): string {
     .join('\n\n');
 }
 
+/**
+ * Estimación deliberadamente barata: ~4 caracteres por token. No usa el
+ * tokenizador real del modelo, así que puede desviarse en código, idiomas no
+ * latinos o texto con muchos símbolos. Sirve como aviso, no como garantía:
+ * la referencia autoritativa es `prompt_eval_count` que devuelve Ollama.
+ */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
