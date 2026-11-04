@@ -264,6 +264,7 @@ export interface CommandInfo {
   effects: string;
   argv?: string[];
   cwd?: string;
+  executesScripts: boolean;
 }
 
 export interface CommandResult {

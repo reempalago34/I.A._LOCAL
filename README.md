@@ -17,8 +17,9 @@ comandos sin confirmación.
   convierte en diffs, permite aceptar o rechazar cada propuesta y crea un backup antes
   de escribir.
 - **Comandos bajo control**: el modelo puede sugerir comandos, pero nunca se ejecutan
-  solos. La ejecución está desactivada por defecto y, si se habilita, usa allowlist,
-  `shell: false`, timeout y límite de salida.
+  solos. La ejecución está desactivada por defecto y, si se habilita, usa una allowlist
+  de comandos completos, denegaciones para `node -e`/`npx`/instalaciones de npm/git
+  peligroso, `shell: false`, timeout y límite de salida.
 - **Ollama primero**: adaptador desacoplado del runtime, URL y modelo configurables,
   estimación orientativa de RAM/disco y errores claros.
 - **Seguridad por defecto**: Argon2id, sesiones opacas en SQLite, cookies `HttpOnly` /

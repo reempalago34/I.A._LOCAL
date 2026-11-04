@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/hooks.js';
+import { checkCommand, describeCommandEffects } from '../commands/policy.js';
 import type { AppConfig } from '../config.js';
 import { estimateTokens } from '../files/context.js';
 import type { ProposalService } from '../proposals/service.js';
@@ -8,7 +9,7 @@ import { OllamaRuntime } from '../runtime/ollama.js';
 import { resolveRuntimeTarget } from '../runtime/url-policy.js';
 import type { SettingsService } from '../settings/service.js';
 import { AppError, toPublicError } from '../utils/errors.js';
-import { parseAssistantOutput, validateCommandText } from './parser.js';
+import { parseAssistantOutput } from './parser.js';
 import type { ChatService } from './service.js';
 
 export function registerChatRoutes(
@@ -176,21 +177,14 @@ export function registerChatRoutes(
           };
 
       const commandResults = parsed.commands.map((command) => {
-        const validation = validateCommandText(command.command);
-        const binary = validation.argv?.[0];
-        const allowed =
-          validation.ok &&
-          Boolean(binary) &&
-          !binary!.includes('/') &&
-          !binary!.includes('\\') &&
-          config.commandAllowlist.includes(binary!);
+        const check = checkCommand(command.command, config.commandAllowlist);
         return {
           command: command.command,
-          allowed,
+          allowed: check.ok,
           enabled: config.enableCommandExecution,
-          reason: validation.reason,
-          effects:
-            'Se ejecutaría dentro de la carpeta del proyecto con un entorno mínimo. Revisa el comando antes de aprobarlo.',
+          reason: check.reason,
+          executesScripts: check.executesScripts,
+          effects: describeCommandEffects(check.executesScripts),
         };
       });
 

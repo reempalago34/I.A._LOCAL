@@ -51,6 +51,8 @@ interface ChatViewProps {
   onConversationFinished: () => void;
   onRefreshProposals: () => void;
   onRefreshBackups: () => void;
+  onProposalApplied: (path: string) => void;
+  appliedPaths: readonly string[];
   onOpenContext: () => void;
   onClearContext: () => void;
   onRemoveContextPath: (path: string) => void;
@@ -131,6 +133,8 @@ export function ChatView(props: ChatViewProps) {
     onConversationFinished,
     onRefreshProposals,
     onRefreshBackups,
+    onProposalApplied,
+    appliedPaths,
     onOpenContext,
     onClearContext,
     onRemoveContextPath,
@@ -433,6 +437,7 @@ export function ChatView(props: ChatViewProps) {
         })),
       );
       notify(t('proposalAppliedMsg'), 'success');
+      onProposalApplied(proposal.path);
       onRefreshProposals();
       onRefreshBackups();
     } catch (caught) {
@@ -576,6 +581,7 @@ export function ChatView(props: ChatViewProps) {
                 key={message.id}
                 message={message}
                 projectId={project?.id ?? null}
+                appliedPaths={appliedPaths}
                 busyProposal={busyProposal}
                 onCopy={() => void copyMessage(message.content)}
                 onApply={applyProposal}
@@ -745,6 +751,7 @@ export function ChatView(props: ChatViewProps) {
 function MessageBubble({
   message,
   projectId,
+  appliedPaths,
   busyProposal,
   onCopy,
   onApply,
@@ -753,6 +760,7 @@ function MessageBubble({
 }: {
   message: ChatMessage;
   projectId: string | null;
+  appliedPaths: readonly string[];
   busyProposal: string | null;
   onCopy: () => void;
   onApply: (proposal: Proposal) => void;
@@ -877,7 +885,12 @@ function MessageBubble({
         {message.commands && message.commands.length > 0 ? (
           <div className="command-stack">
             {commandItems.map(({ command, key }) => (
-              <CommandCard command={command} projectId={projectId} key={key} />
+              <CommandCard
+                command={command}
+                projectId={projectId}
+                appliedPaths={appliedPaths}
+                key={key}
+              />
             ))}
           </div>
         ) : null}

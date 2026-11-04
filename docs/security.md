@@ -173,9 +173,19 @@ el runtime remoto es malicioso o está comprometido, puede quedarse con el conte
   `confirmation: "EJECUTAR"` desde la UI.
 - Se rechazan operadores de shell, redirecciones, variables, sustitución, saltos de
   línea, asignaciones de entorno, rutas absolutas, `..` y opciones peligrosas de git.
-- `spawn` con `shell: false`, allowlist de binarios, timeout, límite de salida, entorno
-  mínimo y `HOME`/`TMPDIR` dentro de `DATA_DIR`.
+- `COMMAND_ALLOWLIST` contiene comandos completos o prefijos de tokens, no binarios
+  sueltos: `git status` permite `git status --short`, pero `node` se ignora. El valor por
+  defecto solo incluye lecturas de git y `node --version`/`npm --version`.
+- Se deniegan siempre `npx`, `node -e`/`--eval`/`-p`/`--print`, instalaciones de npm
+  (`install`, `ci`, `add`, `update`, etc.), `npm exec`, las opciones de git que cambian
+  configuración/rutas/transporte (`-c`, `--config-env`, `--exec-path`, `--upload-pack`,
+  `--receive-pack`, `--git-dir`, `--work-tree`, `-C`) y los subcomandos de git que pueden
+  ejecutar hooks, alias o programas externos (solo se permiten subcomandos de lectura).
+- `spawn` con `shell: false`, timeout, límite de salida, entorno mínimo y `HOME`/`TMPDIR`
+  dentro de `DATA_DIR`.
 - Se mata el grupo de procesos al agotar el timeout.
+- La UI avisa antes de ejecutar scripts (`npm test`, `npm run ...`) si en esta sesión se
+  aplicó una propuesta sobre `package.json`, `scripts/` o configuración de CI.
 
 **No hay aislamiento de contenedor desde la aplicación.** Un comando permitido puede
 leer y modificar el proyecto y consumir CPU/RAM. Si habilitas esta función, hazlo en un

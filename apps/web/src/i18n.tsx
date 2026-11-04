@@ -276,6 +276,8 @@ const es = {
   commandConfirmBody:
     'El comando se ejecutará en {cwd} con un entorno mínimo. No hay aislamiento de contenedor desde la aplicación. Puede modificar archivos o instalar dependencias. Escribe EJECUTAR para confirmar.',
   commandConfirmType: 'Escribe EJECUTAR',
+  commandScriptsChangedWarning:
+    'Has aplicado cambios en package.json, scripts o configuración de CI durante esta sesión. Revisa esos cambios antes de ejecutar un comando que lanza scripts.',
   commandOutput: 'Salida',
   commandExitCode: 'Código de salida',
   commandDuration: 'Duración',
@@ -629,6 +631,8 @@ const en: Record<TranslationKey, string> = {
   commandConfirmBody:
     'The command will run in {cwd} with a minimal environment. There is no container isolation from the app. It may modify files or install dependencies. Type EJECUTAR to confirm.',
   commandConfirmType: 'Type EJECUTAR',
+  commandScriptsChangedWarning:
+    'You applied changes to package.json, scripts or CI configuration during this session. Review those changes before running a command that executes scripts.',
   commandOutput: 'Output',
   commandExitCode: 'Exit code',
   commandDuration: 'Duration',

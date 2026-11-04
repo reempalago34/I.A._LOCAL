@@ -143,7 +143,9 @@ rutas absolutas, `..` y opciones peligrosas de git. La ejecución:
 - está desactivada salvo `ENABLE_COMMAND_EXECUTION=true`;
 - exige `confirmation: "EJECUTAR"`;
 - usa `spawn` con `shell: false` y un `PATH`/`HOME`/`TMPDIR` mínimos;
-- aplica timeout, límite de salida y allowlist de binarios;
+- aplica timeout, límite de salida y allowlist de comandos completos (con denegaciones
+  adicionales para `node -e`, `npx`, instalaciones de npm y git con hooks/programas
+  externos);
 - mata el grupo de procesos al terminar o agotar el tiempo.
 
 No hay aislamiento de contenedor desde la aplicación. Si habilitas comandos, el proceso

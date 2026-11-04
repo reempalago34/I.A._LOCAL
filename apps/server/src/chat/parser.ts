@@ -176,7 +176,7 @@ export function validateCommandText(command: string): {
   return { ok: true, argv };
 }
 
-function tokenizeCommand(input: string): string[] {
+export function tokenizeCommand(input: string): string[] {
   const result: string[] = [];
   let current = '';
   let quote: '"' | "'" | null = null;

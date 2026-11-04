@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ApiError, api } from '../api';
 import { useI18n } from '../i18n';
+import { touchesScriptConfiguration } from '../lib/commandRisk';
 import type { CommandInfo, CommandResult } from '../types';
 import { AlertIcon, PlayIcon, TerminalIcon, WrenchIcon } from './Icons';
 import { Modal } from './Modal';
@@ -8,9 +9,10 @@ import { Modal } from './Modal';
 interface CommandCardProps {
   command: CommandInfo;
   projectId: string | null;
+  appliedPaths?: readonly string[];
 }
 
-export function CommandCard({ command, projectId }: CommandCardProps) {
+export function CommandCard({ command, projectId, appliedPaths = [] }: CommandCardProps) {
   const { t } = useI18n();
   const [analysis, setAnalysis] = useState<CommandInfo | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -147,6 +149,12 @@ export function CommandCard({ command, projectId }: CommandCardProps) {
             </div>
           }
         >
+          {effective.executesScripts && touchesScriptConfiguration(appliedPaths) ? (
+            <div className="notice warn small" role="alert">
+              <AlertIcon size={15} />
+              <span>{t('commandScriptsChangedWarning')}</span>
+            </div>
+          ) : null}
           <label className="field">
             <span>{t('commandConfirmType')}</span>
             <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />

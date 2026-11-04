@@ -37,7 +37,8 @@ const BASE_ENV: NodeJS.ProcessEnv = {
   API_RATE_LIMIT_PER_MINUTE: '1000',
   CHAT_RATE_LIMIT_PER_MINUTE: '20',
   ENABLE_COMMAND_EXECUTION: 'false',
-  COMMAND_ALLOWLIST: 'git,node,npm,npx',
+  COMMAND_ALLOWLIST:
+    'git status,git diff,git log,git show,git rev-parse,git ls-files,node --version,npm --version,npm test,npm run build',
   COMMAND_TIMEOUT_MS: '10000',
   COMMAND_MAX_OUTPUT_BYTES: '65536',
   BACKUP_RETENTION_DAYS: '7',

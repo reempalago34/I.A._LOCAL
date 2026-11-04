@@ -127,6 +127,7 @@ function ForgeApp({
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [appliedPaths, setAppliedPaths] = useState<string[]>([]);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
 
@@ -139,6 +140,12 @@ function ForgeApp({
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 4200);
+  }, []);
+
+  const markProposalApplied = useCallback((proposalPath: string) => {
+    setAppliedPaths((current) =>
+      current.includes(proposalPath) ? current : [...current, proposalPath],
+    );
   }, []);
 
   const loadSettings = useCallback(async () => {
@@ -262,6 +269,7 @@ function ForgeApp({
     setRuntimeStatus(null);
     setConversations([]);
     setProposals([]);
+    setAppliedPaths([]);
     setBackups([]);
     setSelectedProject(null);
     setContextPaths([]);
@@ -513,6 +521,7 @@ function ForgeApp({
         method: 'POST',
         body: JSON.stringify({}),
       });
+      markProposalApplied(proposal.path);
       notify(t('proposalAppliedMsg'), 'success');
     } catch (caught) {
       notify(caught instanceof ApiError ? caught.message : t('applyFailed'), 'error');
@@ -766,6 +775,8 @@ function ForgeApp({
             onConversationFinished={() => void loadConversations()}
             onRefreshProposals={() => void loadProposals()}
             onRefreshBackups={() => void loadBackups()}
+            onProposalApplied={markProposalApplied}
+            appliedPaths={appliedPaths}
             onOpenContext={() => setContextOpen(true)}
             onClearContext={() => setContextPaths([])}
             onRemoveContextPath={(path) =>

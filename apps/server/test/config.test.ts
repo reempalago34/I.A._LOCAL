@@ -67,14 +67,14 @@ describe('loadConfig', () => {
         ...BASE,
         RUNTIME_ALLOWED_HOSTS: 'gpu-box, 10.1.2.3',
         RUNTIME_ALLOWED_PORTS: '8080, 99999, nope',
-        COMMAND_ALLOWLIST: ' git, node ,, npm ',
+        COMMAND_ALLOWLIST: ' git status, node --version ,, npm test , node ',
       },
     });
     expect(config.runtimeAllowedHosts.has('gpu-box')).toBe(true);
     expect(config.runtimeAllowedHosts.has('10.1.2.3')).toBe(true);
     expect(config.runtimeAllowedPorts.has(8080)).toBe(true);
     expect(config.runtimeAllowedPorts.has(99999)).toBe(false);
-    expect(config.commandAllowlist).toEqual(['git', 'node', 'npm']);
+    expect(config.commandAllowlist).toEqual(['git status', 'node --version', 'npm test']);
   });
 
   it('genera un secreto efímero cuando no se configura fuera de producción', async () => {

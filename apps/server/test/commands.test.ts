@@ -76,7 +76,7 @@ describe('ejecución de comandos', () => {
 
     const deniedBinary = await service.analyze(context.user, context.project.id, 'rm -rf .');
     expect(deniedBinary.allowed).toBe(false);
-    expect(deniedBinary.reason).toContain('no está en la lista permitida');
+    expect(deniedBinary.reason).toContain('no coincide con ningún comando completo permitido');
 
     const deniedShell = await service.analyze(
       context.user,
@@ -88,6 +88,84 @@ describe('ejecución de comandos', () => {
 
     const deniedPath = await service.analyze(context.user, context.project.id, '/usr/bin/npm test');
     expect(deniedPath.allowed).toBe(false);
+  });
+
+  it('deniega node eval/print, npx, instalaciones y subcomandos git peligrosos', async () => {
+    const dir = await makeTempDir();
+    const config = makeTestConfig(dir, {
+      COMMAND_ALLOWLIST:
+        'node -e,node --eval,node -p,node --print,npx left-pad,npm install,npm ci,npm install-test,npm clean-install-test,npm exec,git -c core.pager=cat status,git commit,git difftool,git --paginate status,git -p status,git --upload-pack=/bin/sh status',
+    });
+    const context = await setup(config);
+    cleanup = context.cleanup;
+    const service = new CommandService(config, context.store, context.sandbox);
+
+    const denied = [
+      'node -e "console.log(1)"',
+      '"node" "--eval" "console.log(1)"',
+      'node -p "1+1"',
+      'node --print=1',
+      'NODE -e "console.log(1)"',
+      'npx left-pad',
+      'npm install',
+      '"npm" "install"',
+      'npm ci',
+      'npm install-test',
+      'npm clean-install-test',
+      'npm exec -- ls',
+      'git -c core.pager=cat status',
+      'git --paginate status',
+      'git -p status',
+      'git --upload-pack=/bin/sh status',
+      'git --git-dir=/tmp/other status',
+      'git --work-tree=/tmp status',
+      'git commit -m x',
+      'git difftool',
+    ];
+    for (const command of denied) {
+      const analysis = await service.analyze(context.user, context.project.id, command);
+      expect(analysis.allowed, command).toBe(false);
+      expect(analysis.reason, command).toBeTruthy();
+    }
+  });
+
+  it('distingue mayúsculas y acepta comillas en comandos permitidos', async () => {
+    const dir = await makeTempDir();
+    const config = makeTestConfig(dir);
+    const context = await setup(config);
+    cleanup = context.cleanup;
+    const service = new CommandService(config, context.store, context.sandbox);
+
+    const uppercase = await service.analyze(context.user, context.project.id, 'NPM test');
+    expect(uppercase.allowed).toBe(false);
+
+    const quoted = await service.analyze(
+      context.user,
+      context.project.id,
+      '"git" "status" --short',
+    );
+    expect(quoted).toMatchObject({
+      allowed: true,
+      argv: ['git', 'status', '--short'],
+    });
+
+    const prefix = await service.analyze(context.user, context.project.id, 'git statusx');
+    expect(prefix.allowed).toBe(false);
+  });
+
+  it('marca los comandos que ejecutan scripts de package.json', async () => {
+    const dir = await makeTempDir();
+    const config = makeTestConfig(dir);
+    const context = await setup(config);
+    cleanup = context.cleanup;
+    const service = new CommandService(config, context.store, context.sandbox);
+
+    const script = await service.analyze(context.user, context.project.id, 'npm test');
+    expect(script).toMatchObject({ allowed: true, executesScripts: true });
+    expect(script.effects).toContain('scripts de package.json');
+
+    const readOnly = await service.analyze(context.user, context.project.id, 'git status');
+    expect(readOnly).toMatchObject({ allowed: true, executesScripts: false });
   });
 
   it('bloquea la ejecución si está deshabilitada', async () => {
@@ -104,19 +182,19 @@ describe('ejecución de comandos', () => {
     const dir = await makeTempDir();
     const config = makeTestConfig(dir, {
       ENABLE_COMMAND_EXECUTION: 'true',
-      COMMAND_ALLOWLIST: 'node',
+      COMMAND_ALLOWLIST: 'node env-check.mjs',
     });
     const context = await setup(config);
     cleanup = context.cleanup;
+    await writeFile(
+      path.join(config.projectsRoot, 'demo', 'env-check.mjs'),
+      "console.log('forge-ok', process.env.SHOULD_NOT_EXIST ?? 'clean');\n",
+    );
     const service = new CommandService(config, context.store, context.sandbox);
 
-    const result = await service.execute(
-      context.user,
-      context.project.id,
-      `node -e "console.log('forge-ok', process.env.SHOULD_NOT_EXIST ?? 'clean')"`,
-    );
+    const result = await service.execute(context.user, context.project.id, 'node env-check.mjs');
     expect(result).toMatchObject({
-      command: `node -e "console.log('forge-ok', process.env.SHOULD_NOT_EXIST ?? 'clean')"`,
+      command: 'node env-check.mjs',
       cwd: 'demo',
       exitCode: 0,
       timedOut: false,
@@ -130,7 +208,7 @@ describe('ejecución de comandos', () => {
     const dir = await makeTempDir();
     const config = makeTestConfig(dir, {
       ENABLE_COMMAND_EXECUTION: 'true',
-      COMMAND_ALLOWLIST: 'node,forge-missing-binary',
+      COMMAND_ALLOWLIST: 'node --version,forge-missing-binary --version',
     });
     const context = await setup(config);
     cleanup = context.cleanup;
@@ -148,18 +226,18 @@ describe('ejecución de comandos', () => {
     const dir = await makeTempDir();
     const config = makeTestConfig(dir, {
       ENABLE_COMMAND_EXECUTION: 'true',
-      COMMAND_ALLOWLIST: 'node',
+      COMMAND_ALLOWLIST: 'node emit.mjs',
       COMMAND_MAX_OUTPUT_BYTES: '1024',
     });
     const context = await setup(config);
     cleanup = context.cleanup;
+    await writeFile(
+      path.join(config.projectsRoot, 'demo', 'emit.mjs'),
+      "process.stdout.write('x'.repeat(5000));\n",
+    );
     const service = new CommandService(config, context.store, context.sandbox);
 
-    const result = await service.execute(
-      context.user,
-      context.project.id,
-      `node -e "process.stdout.write('x'.repeat(5000))"`,
-    );
+    const result = await service.execute(context.user, context.project.id, 'node emit.mjs');
     expect(result.truncated).toBe(true);
     expect(Buffer.byteLength(result.stdout)).toBeLessThanOrEqual(1024);
   });
@@ -168,18 +246,18 @@ describe('ejecución de comandos', () => {
     const dir = await makeTempDir();
     const config = makeTestConfig(dir, {
       ENABLE_COMMAND_EXECUTION: 'true',
-      COMMAND_ALLOWLIST: 'node',
+      COMMAND_ALLOWLIST: 'node hang.mjs',
       COMMAND_TIMEOUT_MS: '1000',
     });
     const context = await setup(config);
     cleanup = context.cleanup;
+    await writeFile(
+      path.join(config.projectsRoot, 'demo', 'hang.mjs'),
+      'setTimeout(function () {}, 5000);\n',
+    );
     const service = new CommandService(config, context.store, context.sandbox);
 
-    const result = await service.execute(
-      context.user,
-      context.project.id,
-      `node -e "setTimeout(function(){}, 5000)"`,
-    );
+    const result = await service.execute(context.user, context.project.id, 'node hang.mjs');
     expect(result.timedOut).toBe(true);
     expect(result.durationMs).toBeGreaterThanOrEqual(900);
   }, 10_000);

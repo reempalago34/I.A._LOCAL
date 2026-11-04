@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
+import { DEFAULT_COMMAND_ALLOWLIST, parseCommandAllowlist } from './commands/policy.js';
 
 loadDotenv({ path: ['.env', '../../.env'], quiet: true });
 
@@ -58,7 +59,9 @@ const envSchema = z.object({
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(10).max(10_000).default(120),
   CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
   ENABLE_COMMAND_EXECUTION: optionalBoolean,
-  COMMAND_ALLOWLIST: z.string().max(2048).default('git,node,npm,npx'),
+  // Comandos completos o prefijos de tokens, separados por comas. Se ignoran
+  // los binarios sueltos: "node" habilitaría cualquier argumento, incluido -e.
+  COMMAND_ALLOWLIST: z.string().max(2048).default(DEFAULT_COMMAND_ALLOWLIST),
   COMMAND_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
   COMMAND_MAX_OUTPUT_BYTES: z.coerce.number().int().min(1_024).max(1_048_576).default(65_536),
   BACKUP_RETENTION_DAYS: z.coerce.number().int().min(0).max(365).default(7),
@@ -147,9 +150,7 @@ export function loadConfig(options: LoadConfigOptions = {}) {
     runtimeAuthToken: value.OLLAMA_AUTH_TOKEN,
     runtimeAllowedHosts: allowedHosts,
     runtimeAllowedPorts: allowedPorts,
-    commandAllowlist: value.COMMAND_ALLOWLIST.split(',')
-      .map((item) => item.trim())
-      .filter(Boolean),
+    commandAllowlist: parseCommandAllowlist(value.COMMAND_ALLOWLIST),
   });
 }
 

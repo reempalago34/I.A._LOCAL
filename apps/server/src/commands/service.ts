@@ -1,12 +1,12 @@
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { validateCommandText } from '../chat/parser.js';
 import type { AppConfig } from '../config.js';
 import type { Store } from '../db.js';
 import type { FileSandbox } from '../files/sandbox.js';
 import type { ProjectRecord, UserRecord } from '../types.js';
 import { AppError } from '../utils/errors.js';
+import { checkCommand, describeCommandEffects } from './policy.js';
 
 export interface CommandAnalysis {
   command: string;
@@ -16,6 +16,7 @@ export interface CommandAnalysis {
   argv?: string[];
   cwd: string;
   effects: string;
+  executesScripts: boolean;
 }
 
 export class CommandService {
@@ -27,28 +28,16 @@ export class CommandService {
 
   async analyze(user: UserRecord, projectId: string, command: string): Promise<CommandAnalysis> {
     const project = this.#project(user, projectId);
-    const validation = validateCommandText(command);
-    let allowed = validation.ok;
-    let reason = validation.reason;
-    if (allowed && validation.argv) {
-      const binary = validation.argv[0]!;
-      if (binary.includes('/') || binary.includes('\\')) {
-        allowed = false;
-        reason = 'El ejecutable debe ser un nombre simple, no una ruta.';
-      } else if (!this.config.commandAllowlist.includes(binary)) {
-        allowed = false;
-        reason = `El ejecutable "${binary}" no está en la lista permitida.`;
-      }
-    }
+    const check = checkCommand(command, this.config.commandAllowlist);
     return {
       command: command.trim(),
-      allowed,
+      allowed: check.ok,
       enabled: this.config.enableCommandExecution,
-      reason,
-      ...(validation.argv && allowed ? { argv: validation.argv } : {}),
+      reason: check.reason,
+      ...(check.argv && check.ok ? { argv: check.argv } : {}),
       cwd: project.name,
-      effects:
-        'El comando se ejecutaría dentro de la carpeta del proyecto con un entorno mínimo. Puede modificar archivos, instalar dependencias o consumir recursos. No hay aislamiento de contenedor desde la aplicación.',
+      effects: describeCommandEffects(check.executesScripts),
+      executesScripts: check.executesScripts,
     };
   }
 
