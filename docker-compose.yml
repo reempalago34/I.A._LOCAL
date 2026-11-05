@@ -107,6 +107,7 @@ services:
       - runtime
 
   ollama:
+    # Etiqueta fijada y verificada en Docker Hub (última actualización 2026-10-29).
     image: ollama/ollama:0.40.13
     restart: unless-stopped
     environment:
@@ -122,6 +123,8 @@ services:
       - "11434"
 
     pids_limit: 512
+    # Dimensiona según pesos del modelo + caché KV + overhead. Ejemplo: un 7B-8B
+    # q4 suele necesitar 5-6 GB; 12g deja margen para contexto 8192 y picos.
     mem_limit: ${OLLAMA_MEMORY_LIMIT:-12g}
     cpus: ${OLLAMA_CPUS:-4.0}
     stop_grace_period: 20s

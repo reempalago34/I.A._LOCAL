@@ -9,6 +9,7 @@ const compose = read('docker-compose.yml');
 const gpuOverride = read('docker-compose.gpu.yml');
 const envExample = read('.env.example');
 const healthcheck = read('docker/healthcheck.mjs');
+const smokeTest = read('scripts/smoke-test.sh');
 
 function serviceBlock(name: string): string {
   const match = compose.match(
@@ -100,6 +101,12 @@ describe('docker-compose de producción', () => {
     expect(ollama).toContain('OLLAMA_MAX_LOADED_MODELS: "1"');
     expect(ollama).toContain('OLLAMA_NUM_PARALLEL: "1"');
   });
+
+  it('permite ajustar memoria y CPU de Ollama sin tocar el compose', () => {
+    expect(ollama).toMatch(/mem_limit: \$\{OLLAMA_MEMORY_LIMIT:-12g\}/);
+    expect(ollama).toMatch(/cpus: \$\{OLLAMA_CPUS:-4\.0\}/);
+    expect(envExample).toContain('OLLAMA_MEMORY_LIMIT=12g');
+  });
 });
 
 describe('override de GPU', () => {
@@ -127,5 +134,15 @@ describe('healthcheck del contenedor', () => {
     expect(healthcheck).toContain('127.0.0.1');
     expect(healthcheck).toContain('AbortSignal.timeout');
     expect(healthcheck).not.toMatch(/SESSION_SECRET|OLLAMA_AUTH_TOKEN|password/i);
+  });
+});
+
+describe('smoke test de despliegue', () => {
+  it('comprueba /healthz y /readyz sin enviar credenciales', () => {
+    expect(smokeTest).toContain('/healthz');
+    expect(smokeTest).toContain('/readyz');
+    expect(smokeTest).toContain('curl');
+    expect(smokeTest).toMatch(/FORGE_BASE_URL/);
+    expect(smokeTest).not.toMatch(/SESSION_SECRET|OLLAMA_AUTH_TOKEN|password|cookie/i);
   });
 });

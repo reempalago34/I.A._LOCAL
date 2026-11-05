@@ -4,6 +4,7 @@
 # Dependencias + compilación
 # ---------------------------------------------------------------------------
 FROM node:22.23.4-bookworm-slim AS build
+# Imagen fijada y verificada en Docker Hub (última actualización 2026-10-28).
 
 WORKDIR /app
 ENV npm_config_update_notifier=false \

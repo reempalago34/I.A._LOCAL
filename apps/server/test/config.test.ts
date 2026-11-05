@@ -43,6 +43,25 @@ describe('loadConfig', () => {
     ).toThrow(/valor de ejemplo/);
   });
 
+  it('desactiva el runtime personalizado por defecto en producción', async () => {
+    const dir = await makeTempDir();
+    const production = {
+      NODE_ENV: 'production',
+      SESSION_SECRET: 'b'.repeat(48),
+      PUBLIC_ORIGIN: 'https://forge.example.com',
+    };
+    expect(loadConfig({ cwd: dir, env: production }).allowCustomRuntime).toBe(false);
+    expect(
+      loadConfig({ cwd: dir, env: { ...production, ALLOW_CUSTOM_RUNTIME: 'true' } })
+        .allowCustomRuntime,
+    ).toBe(true);
+  });
+
+  it('mantiene el runtime personalizado activo por defecto fuera de producción', async () => {
+    const dir = await makeTempDir();
+    expect(loadConfig({ cwd: dir, env: BASE }).allowCustomRuntime).toBe(true);
+  });
+
   it('valida variables numéricas y de URL', async () => {
     const dir = await makeTempDir();
     expect(() => loadConfig({ cwd: dir, env: { ...BASE, PORT: '0' } })).toThrow(

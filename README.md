@@ -200,6 +200,7 @@ según `BACKUP_RETENTION_DAYS`.
 | `npm run create-admin` | Crea/actualiza una cuenta administradora |
 | `npm run create-user` | Crea una cuenta normal |
 | `npm run test:coverage` | Cobertura del backend |
+| `scripts/smoke-test.sh` | Comprueba `/healthz` y `/readyz` de una instancia desplegada |
 
 ## Documentación
 
@@ -214,7 +215,8 @@ según `BACKUP_RETENTION_DAYS`.
 
 - La imagen Docker y el compose no se construyeron en el entorno donde se desarrolló el
   proyecto (no había Docker disponible). Se validaron de forma estática con tests; haz
-  un despliegue de prueba antes de confiar en ellos.
+  un despliegue de prueba antes de confiar en ellos y ejecuta
+  `scripts/smoke-test.sh https://tu-dominio` tras el despliegue.
 - No hay aislamiento de sistema de archivos por usuario: cualquier cuenta autenticada
   puede seleccionar cualquier carpeta bajo `PROJECTS_ROOT`. Está pensado para un equipo
   pequeño y de confianza, no para multitenencia hostil.

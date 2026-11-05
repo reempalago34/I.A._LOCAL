@@ -13,7 +13,8 @@ const booleanish = z
 
 const optionalBoolean = booleanish.optional().transform((value) => value ?? false);
 
-const booleanDefaultTrue = booleanish.optional().transform((value) => value ?? true);
+/** Sin valor por defecto: en producción se resuelve a false más abajo. */
+const optionalBooleanRaw = booleanish.optional();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -33,7 +34,9 @@ const envSchema = z.object({
   DEPLOYMENT_MODE: z.enum(['local', 'server']).default('local'),
   OLLAMA_BASE_URL: z.string().url().default('http://127.0.0.1:11434'),
   OLLAMA_AUTH_TOKEN: z.string().max(2048).optional(),
-  ALLOW_CUSTOM_RUNTIME: booleanDefaultTrue,
+  // En producción el valor por defecto es false: solo el administrador fija la
+  // URL de Ollama salvo que se habilite explícitamente el cambio desde Ajustes.
+  ALLOW_CUSTOM_RUNTIME: optionalBooleanRaw,
   RUNTIME_ALLOWED_HOSTS: z.string().max(2048).optional(),
   RUNTIME_ALLOWED_PORTS: z.string().max(512).optional(),
   RUNTIME_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(120_000),
@@ -144,6 +147,7 @@ export function loadConfig(options: LoadConfigOptions = {}) {
     dataDir,
     projectsRoot,
     webDist,
+    ALLOW_CUSTOM_RUNTIME: value.ALLOW_CUSTOM_RUNTIME ?? !isProduction,
     sessionSecret: value.SESSION_SECRET ?? randomSecret(),
     generatedSessionSecret: !value.SESSION_SECRET,
     defaultRuntimeUrl: normalizeRuntimeUrl(value.OLLAMA_BASE_URL),

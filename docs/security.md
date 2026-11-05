@@ -145,7 +145,9 @@ visibilidad antes de un cambio de alto impacto.
 
 - La URL se valida (HTTP/HTTPS, sin credenciales, sin query/hash) y se limita por host y
   puerto.
-- `ALLOW_CUSTOM_RUNTIME=false` fija la URL del administrador.
+- `ALLOW_CUSTOM_RUNTIME=false` fija la URL del administrador. En producción es el valor
+  por defecto si no se define; fuera de producción se permite cambiar de runtime salvo
+  que se desactive explícitamente.
 - Se bloquean direcciones de metadata (`169.254.169.254`, `100.100.100.200`, `::`,
   `0.0.0.0`, `metadata.google.internal`).
 - Se clasifica el runtime como `local`, `private` o `remote`.

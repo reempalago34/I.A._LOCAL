@@ -213,6 +213,7 @@ node apps/server/dist/cli/create-user.js --email tu@correo.com --update --random
 ## 9. Verificación posterior al despliegue
 
 - [ ] HTTPS válido y redirección desde HTTP.
+- [ ] `scripts/smoke-test.sh https://tu-dominio` devuelve 200 en `/healthz` y `/readyz`.
 - [ ] `PUBLIC_ORIGIN` coincide con la URL del navegador.
 - [ ] Cookies `forge_sid` y `forge_csrf` con `Secure` (revisa DevTools).
 - [ ] Registro público deshabilitado (`/api/auth/config` → `registrationEnabled: false`).
@@ -234,7 +235,9 @@ node apps/server/dist/cli/create-user.js --email tu@correo.com --update --random
    los modelos del volumen se conservan, pero revisa compatibilidad.
 
 No uses `latest` en producción. El compose fija `forge-local:1.0.0` y
-`ollama/ollama:0.40.13`; cambia las versiones de forma controlada.
+`ollama/ollama:0.40.13`; cambia las versiones de forma controlada. Ambas etiquetas se
+verificaron en Docker Hub: `ollama/ollama:0.40.13` (2026-10-29) y
+`node:22.23.4-bookworm-slim` (2026-10-28).
 
 ## 11. GPU en Coolify
 

@@ -94,6 +94,10 @@ Para fijar la URL y impedir cambios desde la UI:
 ALLOW_CUSTOM_RUNTIME=false
 ```
 
+En producción este es el valor por defecto aunque no definas la variable; fuera de
+producción se permite cambiar de runtime salvo que la desactives explícitamente. El
+compose de producción la fija en `false`.
+
 ### Autenticación del runtime
 
 Si Ollama está detrás de un proxy con autenticación:

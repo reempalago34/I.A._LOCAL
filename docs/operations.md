@@ -242,6 +242,7 @@ Para borrar todo el estado de la instancia, detén el servicio y elimina el volu
 ```bash
 curl -fsS http://127.0.0.1:8080/healthz   # proceso vivo
 curl -fsS http://127.0.0.1:8080/readyz    # SQLite + PROJECTS_ROOT
+scripts/smoke-test.sh https://tu-dominio  # ambas comprobaciones con código 200
 docker compose ps
 docker stats --no-stream forge-local-forge-1 forge-local-ollama-1
 ```
@@ -261,6 +262,10 @@ puede fallar. Es lo esperado; usa `docker compose exec`.
 
 - **RAM**: el modelo y la caché KV dominan el consumo. Ajusta `OLLAMA_MEMORY_LIMIT` y
   `OLLAMA_CPUS`; si el contenedor muere por OOM, reduce el modelo o aumenta la memoria.
+  Como orientación, un modelo 7B-8B cuantizado a 4 bits ocupa 5-6 GB y la caché KV crece
+  con `RUNTIME_NUM_CTX`; deja 1-2 GB de margen para picos y el resto del sistema. El
+  valor por defecto del compose es `12g`, pensado para modelos pequeños/medianos. Mide
+  con `docker stats --no-stream` y `ollama ps` antes de ajustar.
 - **VRAM**: con GPU, Ollama intenta cargar capas en VRAM. Si no cabe, parte del modelo
   va a CPU y baja la velocidad. Revisa `ollama ps`.
 - **Disco**: cada modelo puede ocupar varios GB. `ollama list` muestra tamaños. Deja
@@ -277,6 +282,73 @@ puede fallar. Es lo esperado; usa `docker compose exec`.
 - **Cliente ligero**: el equipo que solo muestra la interfaz no debe ejecutar Ollama ni
   modelos grandes. Comprueba su RAM y disco con **Ajustes → Comprobar recursos**; la
   generación debe ocurrir en el servidor (`DEPLOYMENT_MODE=server`).
+
+## Proyectos en equipo y sincronización
+
+La aplicación **no integra Git**: no clona, no hace `pull`/`push`, no crea ramas y no
+ejecuta hooks. Los proyectos son carpetas dentro de `PROJECTS_ROOT` y las propuestas
+escriben archivos de forma atómica cuando las apruebas. La sincronización con el equipo se
+hace fuera de la app.
+
+### Bind mount (recomendado)
+
+Monta una carpeta del servidor en `/projects` (ver [Coolify](coolify.md#5-volúmenes-persistentes)):
+
+```yaml
+services:
+  forge:
+    volumes:
+      - /srv/forge/projects:/projects
+      - forge-data:/data
+```
+
+```bash
+sudo mkdir -p /srv/forge/projects
+sudo chown -R 1000:1000 /srv/forge/projects
+# Clona o copia los repositorios aquí; la app los verá al refrescar.
+git clone git@example.com:equipo/repo.git /srv/forge/projects/repo
+```
+
+Con bind mount, el equipo puede trabajar en el servidor con Git y la app ve los archivos
+directamente. Para devolver cambios al equipo: revisa y aplica las propuestas, haz commit
+desde el host y publica desde allí. La app no hace commit ni push.
+
+### Clone/pull en el servidor
+
+Si prefieres que el servidor sea la copia de trabajo:
+
+```bash
+# Actualizar un proyecto existente sin reescribir historia
+sudo -u '#1000' git -C /srv/forge/projects/repo pull --ff-only
+```
+
+Antes de un `pull`, comprueba que no hay propuestas pendientes ni cambios sin commit que
+puedan entrar en conflicto. Si el archivo cambia por fuera, la propuesta se invalida con
+`FILE_CHANGED` en lugar de sobrescribirlo.
+
+### rsync desde el equipo
+
+```bash
+# Equipo -> servidor
+rsync -av --exclude .git --exclude node_modules ./ usuario@servidor:/srv/forge/projects/repo/
+
+# Servidor -> equipo (revisa antes de usar --delete)
+rsync -av usuario@servidor:/srv/forge/projects/repo/ ./
+```
+
+Evita `--delete` salvo que sepas qué archivos ha creado la app. Los cambios hechos desde la
+app no se versionan solos: alguien debe revisarlos y hacer commit. No sincronices `.env`
+ni credenciales; están excluidos del contexto, pero siguen siendo archivos del host.
+
+### Reglas prácticas
+
+- No edites el mismo archivo desde la app y por fuera a la vez: usa propuestas o Git, no
+  ambos.
+- Haz commit antes de actualizar el servidor y después de aplicar propuestas relevantes.
+- Los backups de la app solo cubren escrituras hechas por propuestas, no cambios externos.
+- Si usas un volumen nombrado (`forge-projects`) en lugar de bind mount, para devolver
+  cambios tendrás que copiarlos con `docker cp` o montar el volumen en un contenedor
+  temporal con Git; el bind mount simplifica este flujo.
 
 ## Apagado y arranque
 
